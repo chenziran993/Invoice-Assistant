@@ -328,7 +328,9 @@ const App: React.FC = () => {
     if (isDuplicate) return setStatusMessage({ type: 'error', text: `发票号码 ${extracted.invoiceNumber} 已存在，不可重复报销！` });
     if (!user) return setStatusMessage({ type: 'error', text: "用户信息丢失，请重新登录" });
 
-    setIsLoading(true);
+    // 设置当前文件为提交中状态
+    setFiles(prev => prev.map(f => f.id === fileId ? { ...f, isSubmitting: true } : f));
+
     try {
       const newRecord = await api.createRecord({ ...extracted, isPaid, surveyAnswers: {} });
       setRecords(prev => [mapRecordFromApi(newRecord), ...prev]);
@@ -342,8 +344,8 @@ const App: React.FC = () => {
       setSurveyQueue(isPaid ? ['double_signature', 'payment_record'] : ['double_signature']);
     } catch (error: any) {
       setStatusMessage({ type: 'error', text: '提交失败: ' + error.message });
-    } finally {
-      setIsLoading(false);
+      // 清除提交中状态
+      setFiles(prev => prev.map(f => f.id === fileId ? { ...f, isSubmitting: false } : f));
     }
   };
 
@@ -728,7 +730,7 @@ const App: React.FC = () => {
                             <p className="text-[10px] font-bold text-slate-400 mt-1 truncate">No. {item.extractedData.invoiceNumber}</p>
                           </div>
                           <div className="mt-4 flex gap-2">
-                            <button onClick={() => handleAddRecord(item.extractedData!, item.id, item.isBuyerValid || false, item.isDuplicate || false)} disabled={isLoading} className="flex-grow py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-70">{isLoading ? '提交中...' : '提交报销单'}</button>
+                            <button onClick={() => handleAddRecord(item.extractedData!, item.id, item.isBuyerValid || false, item.isDuplicate || false)} disabled={item.isSubmitting} className="flex-grow py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-70">{item.isSubmitting ? '提交中...' : '提交报销单'}</button>
                             <button onClick={() => handleRemoveFile(item.id)} className="px-4 py-3 bg-slate-100 text-slate-400 rounded-2xl text-[11px] font-black hover:bg-slate-200 transition-colors">删除</button>
                           </div>
                         </div>

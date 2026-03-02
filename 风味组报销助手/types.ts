@@ -45,6 +45,7 @@ export interface ProcessingFile {
   error?: string;
   isBuyerValid?: boolean;
   isDuplicate?: boolean;
+  isSubmitting?: boolean;
 }
 
 export interface ChatMessage {
