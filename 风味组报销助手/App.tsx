@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [dbError, setDbError] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState(INVOICE_CATEGORIES[0]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [surveyQueue, setSurveyQueue] = useState<SurveyType[]>([]);
@@ -249,18 +250,23 @@ const App: React.FC = () => {
     const confirmDelete = window.confirm("确定要删除这条报销记录吗？此操作不可恢复。");
     if (!confirmDelete) return;
 
+    setIsLoading(true);
     try {
       await api.deleteRecord(recordId, isAdminMode);
       setRecords(prev => prev.filter(r => r.id !== recordId));
       alert('删除成功');
     } catch (error: any) {
       alert('删除失败: ' + error.message);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSurveyAnswer = async (answer: boolean) => {
     if (!activeWorkflowId || surveyQueue.length === 0) return;
     const currentSurvey = surveyQueue[0];
+
+    setIsLoading(true);
     try {
       const data = await api.submitSurvey(activeWorkflowId, {
         hasDoubleSignature: currentSurvey === 'double_signature' ? answer : undefined,
@@ -271,6 +277,9 @@ const App: React.FC = () => {
       setSurveyQueue(nextQueue);
       if (nextQueue.length === 0) setActiveWorkflowId(null);
     } catch (error: any) { alert('保存答案失败: ' + error.message); }
+    finally {
+      setIsLoading(false);
+    }
   };
 
   const adminUpdateStatus = async (id: string, status: ReimbursementStatus, reason?: string) => {
@@ -383,8 +392,8 @@ const App: React.FC = () => {
             <div className="space-y-6">
               <p className="text-lg font-bold text-center leading-relaxed text-slate-600">{surveyQueue[0] === 'double_signature' ? "发票是否由2名以上的老师签字？" : "已付发票是否附上支付记录？"}</p>
               <div className="flex gap-4">
-                <button onClick={() => handleSurveyAnswer(true)} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all">是</button>
-                <button onClick={() => handleSurveyAnswer(false)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black shadow-inner hover:bg-slate-200 active:scale-95 transition-all">否</button>
+                <button onClick={() => handleSurveyAnswer(true)} disabled={isLoading} className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-black shadow-lg hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-50">{isLoading ? '处理中...' : '是'}</button>
+                <button onClick={() => handleSurveyAnswer(false)} disabled={isLoading} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black shadow-inner hover:bg-slate-200 active:scale-95 transition-all disabled:opacity-50">{isLoading ? '处理中...' : '否'}</button>
               </div>
             </div>
             {surveyQueue.length > 1 && <div className="mt-8 flex justify-center gap-2"><div className="w-8 h-1.5 bg-blue-600 rounded-full"></div><div className="w-8 h-1.5 bg-slate-100 rounded-full"></div></div>}
@@ -570,8 +579,9 @@ const App: React.FC = () => {
                       {(isAdminMode || (r.status === 'box' && r.studentId === user?.studentId)) && (
                         <button
                           onClick={() => handleDeleteRecord(r.id)}
-                          className="p-2 rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                          title={isAdminMode ? "删除报销单" : "仅可删除待提交的报销单"}
+                          disabled={isLoading}
+                          className={`p-2 rounded-xl transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : 'text-slate-400 hover:bg-red-50 hover:text-red-500'}`}
+                          title={isAdminMode ? "删除报销单" : "仅可删除待提交的报销单"}}
                         >
                           🗑️
                         </button>
