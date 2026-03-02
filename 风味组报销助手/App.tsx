@@ -2,6 +2,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import * as api from './services/api';
 import { SubmissionRecord, ProcessingFile, InvoiceData, UserProfile, ReimbursementStatus } from './types';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// 设置pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const SCHOOL_NAME = "江南大学";
 
@@ -171,7 +175,23 @@ const App: React.FC = () => {
 
   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // PDF转图片函数
+  const convertPdfToImage = async (file: File): Promise<string> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1); // 只取第一页
+
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    canvas.height = viewport.height;
+    canvas.width = viewport.width;
+
+    await page.render({ canvasContext: context!, viewport }).promise;
+    return canvas.toDataURL('image/png');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
     if (!fileList) return;
     const selectedFiles = Array.from(fileList) as File[];
@@ -187,14 +207,30 @@ const App: React.FC = () => {
 
     if (validFiles.length === 0) return;
 
-    const newFiles: ProcessingFile[] = validFiles.map(file => ({
-      id: Math.random().toString(36).substr(2, 9),
-      file,
-      previewUrl: URL.createObjectURL(file),
-      status: 'pending' as const
-    }));
-    setFiles(prev => [...prev, ...newFiles]);
-    newFiles.forEach(item => processFile(item, selectedCategory));
+    for (const file of validFiles) {
+      let previewUrl: string;
+
+      if (file.type === 'application/pdf') {
+        // PDF文件需要转换为图片预览
+        try {
+          previewUrl = await convertPdfToImage(file);
+        } catch (error) {
+          alert('PDF预览生成失败');
+          continue;
+        }
+      } else {
+        previewUrl = URL.createObjectURL(file);
+      }
+
+      const newFile: ProcessingFile = {
+        id: Math.random().toString(36).substr(2, 9),
+        file,
+        previewUrl,
+        status: 'pending' as const
+      };
+      setFiles(prev => [...prev, newFile]);
+      processFile(newFile, selectedCategory);
+    }
   };
 
   const processFile = async (item: ProcessingFile, category?: string) => {
