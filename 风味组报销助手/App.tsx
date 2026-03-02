@@ -40,6 +40,9 @@ const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 6;
 
+  // 搜索状态
+  const [searchQuery, setSearchQuery] = useState('');
+
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [surveyQueue, setSurveyQueue] = useState<SurveyType[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -67,7 +70,19 @@ const App: React.FC = () => {
     }
   }, [files.length]);
 
-  const displayRecords = isAdminMode ? records : userRecords;
+  // 管理端名称搜索过滤
+  const displayRecords = useMemo(() => {
+    let recordsToShow = isAdminMode ? records : userRecords;
+
+    // 管理端名称搜索
+    if (isAdminMode && searchQuery.trim()) {
+      recordsToShow = recordsToShow.filter(r =>
+        r.name.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    return recordsToShow;
+  }, [records, userRecords, isAdminMode, searchQuery]);
 
   const mapRecordFromApi = (record: any): SubmissionRecord => ({
     id: record.id,
@@ -662,6 +677,26 @@ const App: React.FC = () => {
                 <p className="text-slate-400 text-xs mt-1">{isAdminMode ? "管理员模式：点击状态快速流转发票进度" : "点击发票卡片查看详细信息与审批原因"}</p>
               </div>
               <div className="flex items-center gap-4">
+                {/* 管理端搜索框 */}
+                {isAdminMode && (
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="搜索用户名称..."
+                      className="border-2 px-4 py-2 rounded-xl text-sm focus:border-blue-500 outline-none w-48"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-lg leading-none"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                )}
                 <div className="flex flex-col items-end">
                   <span className="text-[10px] font-black text-slate-300 uppercase">Records Found</span>
                   <span className="text-xl font-black text-blue-600">{displayRecords.length}</span>
