@@ -523,13 +523,38 @@ const App: React.FC = () => {
         </div>
       </header>
 
+      {/* 状态提示居中弹窗 */}
       {statusMessage && (
-        <div className={`px-6 py-3 text-center text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300 ${
-          statusMessage.type === 'success' ? 'bg-green-50 text-green-700 border-b border-green-200' :
-          statusMessage.type === 'error' ? 'bg-red-50 text-red-700 border-b border-red-200' :
-          'bg-blue-50 text-blue-700 border-b border-blue-200'
-        }`}>
-          {statusMessage.text}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setStatusMessage(null)}
+        >
+          <div
+            className={`bg-white rounded-[2rem] p-8 max-w-sm w-full shadow-2xl animate-in zoom-in-95 duration-200 ${
+              statusMessage.type === 'success' ? 'border-2 border-green-100' :
+              statusMessage.type === 'error' ? 'border-2 border-red-100' :
+              'border-2 border-blue-100'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className={`w-16 h-16 rounded-full flex items-center justify-center text-3xl mx-auto mb-4 ${
+                statusMessage.type === 'success' ? 'bg-green-100 text-green-600' :
+                statusMessage.type === 'error' ? 'bg-red-100 text-red-600' :
+                'bg-blue-100 text-blue-600'
+              }`}>
+                {statusMessage.type === 'success' ? '✓' :
+                 statusMessage.type === 'error' ? '✕' : 'ℹ'}
+              </div>
+              <p className={`text-lg font-bold ${
+                statusMessage.type === 'success' ? 'text-green-700' :
+                statusMessage.type === 'error' ? 'text-red-700' :
+                'text-blue-700'
+              }`}>
+                {statusMessage.text}
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
