@@ -34,6 +34,7 @@ const App: React.FC = () => {
 
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [surveyQueue, setSurveyQueue] = useState<SurveyType[]>([]);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,6 +86,14 @@ const App: React.FC = () => {
       fetchRecords();
     }
   }, [user, isAdminMode]);
+
+  // 自动清除状态消息
+  useEffect(() => {
+    if (statusMessage) {
+      const timer = setTimeout(() => setStatusMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
 
   const fetchRecords = async () => {
     try {
@@ -214,10 +223,11 @@ const App: React.FC = () => {
   };
 
   const handleAddRecord = async (extracted: InvoiceData, fileId: string, isValid: boolean, isDuplicate: boolean) => {
-    if (!isValid) return alert(`发票抬头错误！购买方必须是：${SCHOOL_NAME}\n识别到的购买方：${extracted.buyerName}`);
-    if (isDuplicate) return alert(`发票号码 ${extracted.invoiceNumber} 已存在，不可重复报销！`);
-    if (!user) return alert("用户信息丢失，请重新登录");
+    if (!isValid) return setStatusMessage({ type: 'error', text: `发票抬头错误！购买方必须是：${SCHOOL_NAME}` });
+    if (isDuplicate) return setStatusMessage({ type: 'error', text: `发票号码 ${extracted.invoiceNumber} 已存在，不可重复报销！` });
+    if (!user) return setStatusMessage({ type: 'error', text: "用户信息丢失，请重新登录" });
 
+    setIsLoading(true);
     try {
       const newRecord = await api.createRecord({ ...extracted, isPaid, surveyAnswers: {} });
       setRecords(prev => [mapRecordFromApi(newRecord), ...prev]);
@@ -226,24 +236,27 @@ const App: React.FC = () => {
         if (fileToRemove) URL.revokeObjectURL(fileToRemove.previewUrl);
         return prev.filter(f => f.id !== fileId);
       });
+      setStatusMessage({ type: 'success', text: '提交成功！请完成下面的合规性确认' });
       setActiveWorkflowId(newRecord.id);
       setSurveyQueue(isPaid ? ['double_signature', 'payment_record'] : ['double_signature']);
     } catch (error: any) {
-      alert('提交失败: ' + error.message);
+      setStatusMessage({ type: 'error', text: '提交失败: ' + error.message });
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const toggleRecordPaidStatus = async (recordId: string) => {
     const record = records.find(r => r.id === recordId);
     if (!record) return;
-    if (record.paidEditCount >= 1 && !isAdminMode) return alert("支付状态提交后仅可修改一次。");
+    if (record.paidEditCount >= 1 && !isAdminMode) return setStatusMessage({ type: 'error', text: "支付状态提交后仅可修改一次。" });
 
     const becomingPaid = !record.isPaid;
     try {
       await api.updatePaidStatus(recordId, becomingPaid);
-      if (becomingPaid) { setActiveWorkflowId(recordId); setSurveyQueue(['payment_record']); }
+      if (becomingPaid) { setActiveWorkflowId(recordId); setSurveyQueue(['payment_record']); setStatusMessage({ type: 'success', text: '请完成合规性确认' }); }
       setRecords(prev => prev.map(r => r.id === recordId ? { ...r, isPaid: becomingPaid, paidEditCount: r.paidEditCount + 1 } : r));
-    } catch (error: any) { alert('更新失败: ' + error.message); }
+    } catch (error: any) { setStatusMessage({ type: 'error', text: '更新失败: ' + error.message }); }
   };
 
   const handleDeleteRecord = async (recordId: string) => {
@@ -254,9 +267,9 @@ const App: React.FC = () => {
     try {
       await api.deleteRecord(recordId, isAdminMode);
       setRecords(prev => prev.filter(r => r.id !== recordId));
-      alert('删除成功');
+      setStatusMessage({ type: 'success', text: isAdminMode ? '管理员删除了该报销单' : '删除成功' });
     } catch (error: any) {
-      alert('删除失败: ' + error.message);
+      setStatusMessage({ type: 'error', text: '删除失败: ' + error.message });
     } finally {
       setIsLoading(false);
     }
@@ -275,8 +288,11 @@ const App: React.FC = () => {
       setRecords(prev => prev.map(r => r.id === activeWorkflowId ? { ...r, surveyAnswers: data.survey_answers } : r));
       const nextQueue = surveyQueue.slice(1);
       setSurveyQueue(nextQueue);
-      if (nextQueue.length === 0) setActiveWorkflowId(null);
-    } catch (error: any) { alert('保存答案失败: ' + error.message); }
+      if (nextQueue.length === 0) {
+        setActiveWorkflowId(null);
+        setStatusMessage({ type: 'success', text: '提交成功！报销单已提交' });
+      }
+    } catch (error: any) { setStatusMessage({ type: 'error', text: '保存答案失败: ' + error.message }); }
     finally {
       setIsLoading(false);
     }
@@ -286,7 +302,8 @@ const App: React.FC = () => {
     try {
       await api.updateStatus(id, status, reason);
       setRecords(prev => prev.map(r => r.id === id ? { ...r, status, rejectionReason: reason } : r));
-    } catch (error: any) { alert('更新状态失败: ' + error.message); }
+      setStatusMessage({ type: 'success', text: status === 'rejected' ? '已退单' : `已更新状态为: ${status}` });
+    } catch (error: any) { setStatusMessage({ type: 'error', text: '更新状态失败: ' + error.message }); }
   };
 
   const handleLogout = () => { localStorage.removeItem('admin_token'); setIsAdminMode(false); };
@@ -433,6 +450,16 @@ const App: React.FC = () => {
         </div>
       </header>
 
+      {statusMessage && (
+        <div className={`px-6 py-3 text-center text-sm font-bold animate-in fade-in slide-in-from-top-2 duration-300 ${
+          statusMessage.type === 'success' ? 'bg-green-50 text-green-700 border-b border-green-200' :
+          statusMessage.type === 'error' ? 'bg-red-50 text-red-700 border-b border-red-200' :
+          'bg-blue-50 text-blue-700 border-b border-blue-200'
+        }`}>
+          {statusMessage.text}
+        </div>
+      )}
+
       <main className="max-w-7xl mx-auto p-4 md:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
         {!isAdminMode && (
           <div className="lg:col-span-5 space-y-6 animate-in fade-in slide-in-from-left duration-700">
@@ -447,9 +474,9 @@ const App: React.FC = () => {
                     <button onClick={async () => {
                       const readyFiles = files.filter(f => f.status === 'completed' && !f.isDuplicate);
                       const validFiles = readyFiles.filter(f => f.isBuyerValid);
-                      if (validFiles.length === 0) return alert("没有符合抬头要求的发票可提交");
+                      if (validFiles.length === 0) return setStatusMessage({ type: 'error', text: "没有符合抬头要求的发票可提交" });
                       for (const f of validFiles) await handleAddRecord(f.extractedData!, f.id, true, false);
-                      if (readyFiles.length > validFiles.length) alert(`已提交 ${validFiles.length} 张合规发票，其余 ${readyFiles.length - validFiles.length} 张发票抬头有误，请检查。`);
+                      if (readyFiles.length > validFiles.length) setStatusMessage({ type: 'info', text: `已提交 ${validFiles.length} 张合规发票，其余 ${readyFiles.length - validFiles.length} 张发票抬头有误` });
                     }} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-[10px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all">
                       全部提交 ({files.filter(f => f.status === 'completed' && !f.isDuplicate).length})
                     </button>
@@ -520,7 +547,7 @@ const App: React.FC = () => {
                             <p className="text-[10px] font-bold text-slate-400 mt-1 truncate">No. {item.extractedData.invoiceNumber}</p>
                           </div>
                           <div className="mt-4 flex gap-2">
-                            <button onClick={() => handleAddRecord(item.extractedData!, item.id, item.isBuyerValid || false, item.isDuplicate || false)} className="flex-grow py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all">提交报销单</button>
+                            <button onClick={() => handleAddRecord(item.extractedData!, item.id, item.isBuyerValid || false, item.isDuplicate || false)} disabled={isLoading} className="flex-grow py-3 bg-blue-600 text-white rounded-2xl text-[11px] font-black shadow-lg shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-70">{isLoading ? '提交中...' : '提交报销单'}</button>
                             <button onClick={() => handleRemoveFile(item.id)} className="px-4 py-3 bg-slate-100 text-slate-400 rounded-2xl text-[11px] font-black hover:bg-slate-200 transition-colors">删除</button>
                           </div>
                         </div>
@@ -581,7 +608,7 @@ const App: React.FC = () => {
                           onClick={() => handleDeleteRecord(r.id)}
                           disabled={isLoading}
                           className={`p-2 rounded-xl transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : 'text-slate-400 hover:bg-red-50 hover:text-red-500'}`}
-                          title={isAdminMode ? "删除报销单" : "仅可删除待提交的报销单"}}
+                          title={isAdminMode ? "删除报销单" : "仅可删除待提交的报销单"}
                         >
                           🗑️
                         </button>
