@@ -566,13 +566,16 @@ const App: React.FC = () => {
                         <div className="text-2xl font-black text-blue-600">¥{r.amount.toFixed(2)}</div>
                         <button onClick={() => toggleRecordPaidStatus(r.id)} className={`mt-2 px-4 py-1.5 rounded-xl text-[10px] font-black transition-all active:scale-95 shadow-sm ${r.isPaid ? 'bg-blue-500 text-white shadow-blue-100' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}>{r.isPaid ? '已付发票' : '待付发票'}</button>
                       </div>
-                      <button
-                        onClick={() => handleDeleteRecord(r.id)}
-                        className="p-2 rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
-                        title="删除报销单"
-                      >
-                        🗑️
-                      </button>
+                      {/* 用户只能删除自己创建的、状态为 box 的记录；管理员可以删除任意记录 */}
+                      {(isAdminMode || (r.status === 'box' && r.studentId === user?.studentId)) && (
+                        <button
+                          onClick={() => handleDeleteRecord(r.id)}
+                          className="p-2 rounded-xl text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+                          title={isAdminMode ? "删除报销单" : "仅可删除待提交的报销单"}
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="relative z-10 flex-grow"><ProgressSteps status={r.status} reason={r.rejectionReason} /></div>
