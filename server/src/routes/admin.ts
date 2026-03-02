@@ -131,10 +131,11 @@ router.get('/export', authenticateAdmin, async (req, res) => {
       r.rejection_reason || ''
     ].map(escapeCSV));
 
+    const timestamp = Date.now();
     const csvContent = '\ufeff' + [headers, ...rows].map(e => e.join(',')).join('\n');
 
     res.setHeader('Content-Type', 'text/csv;charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=报销清单_${Date.now()}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=export_${timestamp}.csv`);
     res.send(csvContent);
   } catch (error: any) {
     console.error('Export error:', error);

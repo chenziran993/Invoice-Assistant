@@ -215,10 +215,11 @@ router.get('/export', authenticateUser, async (req: any, res) => {
       new Date(r.created_at).toLocaleString('zh-CN')
     ].map(escapeCSV));
 
+    const timestamp = Date.now();
     const csvContent = '\ufeff' + [headers, ...rows].map(e => e.join(',')).join('\n');
 
     res.setHeader('Content-Type', 'text/csv;charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename=我的报销清单_${Date.now()}.csv`);
+    res.setHeader('Content-Disposition', `attachment; filename=my_export_${timestamp}.csv`);
     res.send(csvContent);
   } catch (error: any) {
     console.error('Export error:', error);
