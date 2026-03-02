@@ -15,7 +15,7 @@ export interface InvoiceData {
 const OCR_TIMEOUT = 30000; // 30秒超时
 
 // 直接调用阿里云REST API - OCR统一识别服务
-const callAliyunAPI = async (imageBase64: string): Promise<any> => {
+const callAliyunAPI = async (imageBase64: string, fileType: string = 'image'): Promise<any> => {
   const { accessKeyId, accessKeySecret } = config.aliyun;
 
   // 生成签名
@@ -23,6 +23,7 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
   const signatureNonce = crypto.randomUUID();
 
   // 公共参数 - Type使用 Invoice（增值税发票）
+  // PDF文件使用不同的Type
   const commonParams = {
     AccessKeyId: accessKeyId,
     Action: 'RecognizeAllText',
@@ -31,7 +32,7 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
     SignatureNonce: signatureNonce,
     SignatureVersion: '1.0',
     Timestamp: timestamp,
-    Type: 'Invoice',  // 增值税发票
+    Type: fileType === 'pdf' ? 'InvoicePDF' : 'Invoice',  // PDF或图片
     Version: '2021-07-07',
   };
 
@@ -50,8 +51,8 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
   // 构建最终URL
   const url = `https://ocr-api.cn-hangzhou.aliyuncs.com/?Signature=${encodeURIComponent(signature)}&${sortedParams}`;
 
-  // 解码base64为Buffer，使用body参数传图片
-  const imageBuffer = Buffer.from(imageBase64, 'base64');
+  // 解码base64为Buffer，使用body参数传图片或PDF
+  const fileBuffer = Buffer.from(imageBase64, 'base64');
 
   // 添加超时控制
   const controller = new AbortController();
@@ -61,10 +62,10 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/octet-stream',
+        'Content-Type': fileType === 'pdf' ? 'application/pdf' : 'application/octet-stream',
         'Accept': 'application/json',
       },
-      body: imageBuffer,
+      body: fileBuffer,
       signal: controller.signal,
     });
 
@@ -87,9 +88,9 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
   }
 };
 
-export const extractInvoiceData = async (imageBase64: string): Promise<InvoiceData> => {
+export const extractInvoiceData = async (imageBase64: string, fileType: string = 'image'): Promise<InvoiceData> => {
   try {
-    const result = await callAliyunAPI(imageBase64);
+    const result = await callAliyunAPI(imageBase64, fileType);
 
     const data = result.Data;
     if (!data || !data.SubImages || data.SubImages.length === 0) {

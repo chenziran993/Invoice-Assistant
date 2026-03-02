@@ -18,10 +18,23 @@ router.post('/extract', async (req, res) => {
       return res.status(400).json({ error: '请提供图片' });
     }
 
-    // 移除 data:image/xxx;base64, 前缀
-    const base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+    // 检测文件类型
+    let base64Data = image;
+    let fileType = 'image';
 
-    const data = await extractInvoiceData(base64Data);
+    if (image.startsWith('data:application/pdf;base64,')) {
+      // PDF文件
+      base64Data = image.replace(/^data:application\/pdf;base64,/, '');
+      fileType = 'pdf';
+      console.log('Processing PDF file');
+    } else if (image.startsWith('data:image/')) {
+      // 图片文件
+      base64Data = image.replace(/^data:image\/\w+;base64,/, '');
+      fileType = 'image';
+      console.log('Processing image file');
+    }
+
+    const data = await extractInvoiceData(base64Data, fileType);
 
     // 校验购买方
     const isBuyerValid = data.buyerName.includes(config.school.name) &&
