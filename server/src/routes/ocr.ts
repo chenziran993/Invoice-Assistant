@@ -7,7 +7,12 @@ const router = Router();
 // 识别发票
 router.post('/extract', async (req, res) => {
   try {
-    const { image } = req.body;
+    const { image, category } = req.body;
+
+    // category 可以用于后续业务逻辑，目前先接收但不强制使用
+    if (category) {
+      console.log('Received category:', category);
+    }
 
     if (!image) {
       return res.status(400).json({ error: '请提供图片' });
