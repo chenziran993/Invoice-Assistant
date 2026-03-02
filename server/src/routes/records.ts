@@ -264,6 +264,11 @@ router.delete('/:id', authenticateUser, async (req: any, res) => {
       return res.status(403).json({ error: '无权限删除此记录' });
     }
 
+    // 普通用户只能删除状态为 box 的记录
+    if (!isAdmin && record.status !== 'box') {
+      return res.status(403).json({ error: '只能删除待提交的记录' });
+    }
+
     const { error: deleteError } = await supabase
       .from('reimbursement_records')
       .delete()
