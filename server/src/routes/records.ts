@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import jwt from 'jsonwebtoken';
 import { supabase } from '../lib/supabase';
-import { authenticateUser, UserPayload } from '../middleware/auth';
+import { authenticateUser, UserPayload, AdminPayload } from '../middleware/auth';
 import { config } from '../config';
 
 const router = Router();
@@ -228,12 +228,37 @@ router.get('/export', authenticateUser, async (req: any, res) => {
 });
 
 // 删除报销记录
-router.delete('/:id', authenticateUser, async (req: any, res) => {
+router.delete('/:id', async (req: any, res) => {
   try {
     const { id } = req.params;
-    const user = req.user as UserPayload;
+    const authHeader = req.headers.authorization;
+    const isAdminMode = req.headers['x-admin-mode'] === 'true';
 
-    // 检查记录是否存在且属于当前用户
+    // 验证 token 并确定用户身份
+    let user: UserPayload | null = null;
+    let isAdmin = isAdminMode;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      // 先尝试用管理员 secret 验证
+      try {
+        const adminPayload = jwt.verify(token, config.jwt.secret + '_admin') as AdminPayload;
+        isAdmin = true;
+        (req as any).admin = adminPayload;
+      } catch {
+        // 再尝试用用户 secret 验证
+        try {
+          user = jwt.verify(token, config.jwt.secret) as UserPayload;
+          (req as any).user = user;
+        } catch {
+          return res.status(401).json({ error: '登录已过期' });
+        }
+      }
+    } else {
+      return res.status(401).json({ error: '未登录' });
+    }
+
+    // 检查记录是否存在
     const { data: record, error: fetchError } = await supabase
       .from('reimbursement_records')
       .select('*')
@@ -244,23 +269,8 @@ router.delete('/:id', authenticateUser, async (req: any, res) => {
       return res.status(404).json({ error: '记录不存在' });
     }
 
-    // 检查是否为管理员（通过自定义 header 或 JWT token 判断）
-    const authHeader = req.headers.authorization;
-    const isAdminMode = req.headers['x-admin-mode'] === 'true';
-    let isAdmin = isAdminMode;
-
-    if (!isAdmin && authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      try {
-        const decoded = jwt.verify(token, config.jwt.secret + '_admin');
-        isAdmin = !!decoded;
-      } catch (e) {
-        // 不是管理员 token，继续验证用户
-      }
-    }
-
     // 允许用户删除自己的记录，或管理员删除任何记录
-    if (!isAdmin && record.student_id !== user.studentId) {
+    if (!isAdmin && user && record.student_id !== user.studentId) {
       return res.status(403).json({ error: '无权限删除此记录' });
     }
 
