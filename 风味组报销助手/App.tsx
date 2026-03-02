@@ -40,7 +40,7 @@ const App: React.FC = () => {
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsCurrentPage, setRecordsCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 6;
+  const ITEMS_PER_PAGE = 2;
   const RECORDS_PER_PAGE = 3;
 
   // 搜索状态
