@@ -272,19 +272,29 @@ const App: React.FC = () => {
 
   const processFile = async (item: ProcessingFile, category?: string) => {
     setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'processing' } : f));
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const base64 = reader.result as string;
-      try {
-        const data = await api.extractInvoice(base64, category);
-        const isBuyerValid = data.isBuyerValid;
-        const isDuplicate = records.some(r => r.invoiceNumber.trim().toUpperCase() === data.invoiceNumber.trim().toUpperCase());
-        setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'completed', extractedData: data, isBuyerValid, isDuplicate } : f));
-      } catch {
-        setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'error', error: '识别失败' } : f));
-      }
-    };
-    reader.readAsDataURL(item.file);
+
+    // 如果是PDF文件，使用已转换的图片base64；否则读取原始文件
+    let base64: string;
+    if (item.file.type === 'application/pdf') {
+      // PDF已转换为图片，直接使用previewUrl
+      base64 = item.previewUrl;
+    } else {
+      // 图片文件，使用FileReader读取
+      base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(item.file);
+      });
+    }
+
+    try {
+      const data = await api.extractInvoice(base64, category);
+      const isBuyerValid = data.isBuyerValid;
+      const isDuplicate = records.some(r => r.invoiceNumber.trim().toUpperCase() === data.invoiceNumber.trim().toUpperCase());
+      setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'completed', extractedData: data, isBuyerValid, isDuplicate } : f));
+    } catch {
+      setFiles(prev => prev.map(f => f.id === item.id ? { ...f, status: 'error', error: '识别失败' } : f));
+    }
   };
 
   const handleRemoveFile = (id: string) => {
