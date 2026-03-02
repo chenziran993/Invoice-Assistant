@@ -36,6 +36,10 @@ const App: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState(INVOICE_CATEGORIES[0]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // 分页状态
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
+
   const [activeWorkflowId, setActiveWorkflowId] = useState<string | null>(null);
   const [surveyQueue, setSurveyQueue] = useState<SurveyType[]>([]);
   const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
@@ -47,6 +51,21 @@ const App: React.FC = () => {
     if (!user) return [];
     return records.filter(r => r.studentId === user.studentId);
   }, [records, user?.studentId]);
+
+  // 分页计算
+  const paginatedFiles = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return files.slice(start, start + ITEMS_PER_PAGE);
+  }, [files, currentPage]);
+
+  const totalPages = Math.ceil(files.length / ITEMS_PER_PAGE);
+
+  // 当文件列表变化时，重置到第一页
+  useEffect(() => {
+    if (files.length > 0 && (currentPage - 1) * ITEMS_PER_PAGE >= files.length) {
+      setCurrentPage(1);
+    }
+  }, [files.length]);
 
   const displayRecords = isAdminMode ? records : userRecords;
 
@@ -547,7 +566,7 @@ const App: React.FC = () => {
 
               <div className="mt-10 space-y-5">
                 {files.length === 0 && <div className="py-12 border-2 border-dashed border-slate-50 rounded-3xl text-center text-slate-300 font-bold text-sm">暂未上传任何文件</div>}
-                {files.map(item => (
+                {paginatedFiles.map(item => (
                   <div key={item.id} className={`p-6 rounded-[2rem] border-2 flex gap-5 transition-all animate-in slide-in-from-bottom-4 duration-300 ${item.isDuplicate ? 'bg-amber-50 border-amber-200' : item.isBuyerValid === false ? 'bg-red-50 border-red-200' : 'bg-white border-slate-100 hover:shadow-2xl hover:border-blue-100'}`}>
                     <div className="relative">
                       {item.file.type.includes('image') ? <img src={item.previewUrl} className="w-28 h-28 object-cover rounded-3xl shadow-md border-2 border-white bg-slate-50" alt="preview" /> : <div className="w-28 h-28 bg-red-50 rounded-3xl flex flex-col items-center justify-center shadow-md border-2 border-white"><span className="text-4xl">📄</span><span className="text-[10px] font-black text-red-500 mt-1 uppercase">PDF Document</span></div>}
@@ -597,6 +616,39 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 ))}
+
+                {/* 分页组件 */}
+                {files.length > ITEMS_PER_PAGE && (
+                  <div className="flex justify-center items-center gap-2 mt-6">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-slate-200 transition-colors"
+                    >
+                      上一页
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-10 h-10 rounded-xl text-sm font-bold transition-colors ${
+                          currentPage === page
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-4 py-2 bg-slate-100 rounded-xl text-sm font-bold disabled:opacity-50 hover:bg-slate-200 transition-colors"
+                    >
+                      下一页
+                    </button>
+                  </div>
+                )}
               </div>
             </section>
           </div>
