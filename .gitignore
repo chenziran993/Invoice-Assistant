@@ -33,3 +33,6 @@ Thumbs.db
 # Misc
 *.tgz
 .cache
+
+# Worktrees
+.worktrees/
