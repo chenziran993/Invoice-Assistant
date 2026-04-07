@@ -45,7 +45,15 @@
       "Bash(cmd.exe:*)",
       "mcp__chrome-devtools__close_page",
       "mcp__chrome-devtools__evaluate_script",
-      "Bash(tasklist:*)"
+      "Bash(tasklist:*)",
+      "WebFetch(domain:minimax-algeng-chat-tts.oss-cn-wulanchabu.aliyuncs.com)",
+      "Bash(docker-compose build:*)",
+      "Bash(docker info:*)",
+      "Bash(docker pull:*)",
+      "Bash(DOCKER_BUILDKIT=1 docker-compose build:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker exec:*)"
     ]
   }
 }
