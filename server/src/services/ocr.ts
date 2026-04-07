@@ -31,7 +31,7 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
   const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
   const signatureNonce = crypto.randomUUID();
 
-  // 公共参数 - Type使用 Invoice（增值税发票）
+  // 公共参数 - Type使用 MixedInvoice（混贴票证，可识别多种发票类型）
   const commonParams = {
     AccessKeyId: accessKeyId,
     Action: 'RecognizeAllText',
@@ -40,7 +40,7 @@ const callAliyunAPI = async (imageBase64: string): Promise<any> => {
     SignatureNonce: signatureNonce,
     SignatureVersion: '1.0',
     Timestamp: timestamp,
-    Type: 'Invoice',  // 增值税发票
+    Type: 'MixedInvoice',  // 混贴票证，支持多种发票类型自动识别
     Version: '2021-07-07',
   };
 
